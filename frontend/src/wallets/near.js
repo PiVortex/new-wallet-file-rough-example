@@ -1,16 +1,16 @@
 // near api js
-import { providers } from "near-api-js";
+import { providers } from 'near-api-js';
 
 // wallet selector
-import { distinctUntilChanged, map } from "rxjs";
-import "@near-wallet-selector/modal-ui/styles.css";
-import { setupModal } from "@near-wallet-selector/modal-ui";
-import { setupWalletSelector } from "@near-wallet-selector/core";
+import { distinctUntilChanged, map } from 'rxjs';
+import '@near-wallet-selector/modal-ui/styles.css';
+import { setupModal } from '@near-wallet-selector/modal-ui';
+import { setupWalletSelector } from '@near-wallet-selector/core';
 import { setupMeteorWallet } from '@near-wallet-selector/meteor-wallet';
-import { setupMyNearWallet } from "@near-wallet-selector/my-near-wallet";
+import { setupMyNearWallet } from '@near-wallet-selector/my-near-wallet';
 
-const THIRTY_TGAS = "30000000000000";
-const NO_DEPOSIT = "0";
+const THIRTY_TGAS = '30000000000000';
+const NO_DEPOSIT = '0';
 
 export class Wallet {
   /**
@@ -22,7 +22,7 @@ export class Wallet {
    * const wallet = new Wallet({ networkId: 'testnet', createAccessKeyFor: 'contractId' });
    * wallet.startUp((signedAccountId) => console.log(signedAccountId));
    */
-  constructor({ networkId = "testnet", createAccessKeyFor = undefined }) {
+  constructor({ networkId = 'testnet', createAccessKeyFor = undefined }) {
     this.createAccessKeyFor = createAccessKeyFor;
     this.networkId = networkId;
   }
@@ -30,7 +30,7 @@ export class Wallet {
   /**
    * To be called when the website loads
    * @param {Function} accountChangeHook - a function that is called when the user signs in or out#
-   * @returns {Promise<string>} - the accountId of the signed-in user
+   * @returns {Promise<string>} - the accountId of the signed-in user 
    */
   startUp = async (accountChangeHook) => {
     this.selector = setupWalletSelector({
@@ -40,19 +40,15 @@ export class Wallet {
 
     const walletSelector = await this.selector;
     const isSignedIn = walletSelector.isSignedIn();
-    const accountId = isSignedIn
-      ? walletSelector.store.getState().accounts[0].accountId
-      : "";
+    const accountId = isSignedIn ? walletSelector.store.getState().accounts[0].accountId : '';
 
     walletSelector.store.observable
       .pipe(
-        map((state) => state.accounts),
-        distinctUntilChanged(),
+        map(state => state.accounts),
+        distinctUntilChanged()
       )
-      .subscribe((accounts) => {
-        const signedAccount = accounts.find(
-          (account) => account.active,
-        )?.accountId;
+      .subscribe(accounts => {
+        const signedAccount = accounts.find((account) => account.active)?.accountId;
         accountChangeHook(signedAccount);
       });
 
@@ -63,9 +59,7 @@ export class Wallet {
    * Displays a modal to login the user
    */
   signIn = async () => {
-    const modal = setupModal(await this.selector, {
-      contractId: this.createAccessKeyFor,
-    });
+    const modal = setupModal(await this.selector, { contractId: this.createAccessKeyFor });
     modal.show();
   };
 
@@ -90,14 +84,15 @@ export class Wallet {
     const provider = new providers.JsonRpcProvider({ url });
 
     let res = await provider.query({
-      request_type: "call_function",
+      request_type: 'call_function',
       account_id: contractId,
       method_name: method,
-      args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
-      finality: "optimistic",
+      args_base64: Buffer.from(JSON.stringify(args)).toString('base64'),
+      finality: 'optimistic',
     });
     return JSON.parse(Buffer.from(res.result).toString());
   };
+
 
   /**
    * Makes a call to a contract
@@ -109,20 +104,14 @@ export class Wallet {
    * @param {string} options.deposit - the amount of yoctoNEAR to deposit
    * @returns {Promise<Transaction>} - the resulting transaction
    */
-  callMethod = async ({
-    contractId,
-    method,
-    args = {},
-    gas = THIRTY_TGAS,
-    deposit = NO_DEPOSIT,
-  }) => {
+  callMethod = async ({ contractId, method, args = {}, gas = THIRTY_TGAS, deposit = NO_DEPOSIT }) => {
     // Sign a transaction with the "FunctionCall" action
     const selectedWallet = await (await this.selector).wallet();
     const outcome = await selectedWallet.signAndSendTransaction({
       receiverId: contractId,
       actions: [
         {
-          type: "FunctionCall",
+          type: 'FunctionCall',
           params: {
             methodName: method,
             args,
@@ -146,54 +135,54 @@ export class Wallet {
     const { network } = walletSelector.options;
     const provider = new providers.JsonRpcProvider({ url: network.nodeUrl });
 
-    const transaction = await provider.txStatus(txhash, "unnused");
+    const transaction = await provider.txStatus(txhash, 'unnused');
     return providers.getTransactionLastResult(transaction);
   };
 
-  /**
+    /**
   * Retrieves the balance of an account
   * @param {string} accountId - the account id
   * @returns {Promise<number>} - the account balance
   */ 
-  getBalance = async (accountId) => {
-    const walletSelector = await this.selector;
-    const { network } = walletSelector.options;
-    const provider = new providers.JsonRpcProvider({ url: network.nodeUrl });
+    getBalance = async (accountId) => {
+      const walletSelector = await this.selector;
+      const { network } = walletSelector.options;
+      const provider = new providers.JsonRpcProvider({ url: network.nodeUrl });
+    
+      // Retrieve account state from the network
+      const account = await provider.query({
+        request_type: 'view_account',
+        account_id: accountId,
+        finality: 'final',
+      });
+    
+      // Return amount in NEAR
+      return account.amount ? account.amount / (10**24) : 0;
+    };
   
-    // Retrieve account state from the network
-    const account = await provider.query({
-      request_type: 'view_account',
-      account_id: accountId,
-      finality: 'final',
-    });
-  
-    // Return amount in NEAR
-    return account.amount ? account.amount / (10**24) : 0;
-  };
-
-  /**
-  * Send multiple transactions simultaneously
-  * @param {Array<Object>} transactions - the array of transaction objects to be signed and sent
-  * @returns {Promise<Object>} - the resulting transactions
-  * @example
-  * await wallet.signAndSendTransactions({
-      transactions: [
-        {
-          receiverId: "receiver.testnet",
-          actions: [
-            {
-              type: "Transfer",
-              params: {
-                amount: "10000000000000000000000",
+    /**
+    * Send multiple transactions simultaneously
+    * @param {Array<Object>} transactions - the array of transaction objects to be signed and sent
+    * @returns {Promise<Object>} - the resulting transactions
+    * @example
+    * await wallet.signAndSendTransactions({
+        transactions: [
+          {
+            receiverId: "receiver.testnet",
+            actions: [
+              {
+                type: "Transfer",
+                params: {
+                  amount: "10000000000000000000000",
+                },
               },
-            },
-          ],
-        }
-      ],
-    });
-  */  
-  signAndSendTransactions = async (transactions) => {
-    const selectedWallet = await (await this.selector).wallet();
-    return selectedWallet.signAndSendTransactions(transactions);
-  };
+            ],
+          }
+        ],
+      });
+    */  
+    signAndSendTransactions = async (transactions) => {
+      const selectedWallet = await (await this.selector).wallet();
+      return selectedWallet.signAndSendTransactions(transactions);
+    };
 }
