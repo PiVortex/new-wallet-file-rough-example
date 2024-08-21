@@ -8,6 +8,7 @@ import { Cards } from '@/components/cards';
 // Contract that the app will interact with
 const CONTRACT = HelloNearContract;
 
+
 export default function HelloNear() {
   const { signedAccountId, wallet } = useContext(NearContext);
 
@@ -15,6 +16,7 @@ export default function HelloNear() {
   const [newGreeting, setNewGreeting] = useState('loading...');
   const [loggedIn, setLoggedIn] = useState(false);
   const [showSpinner, setShowSpinner] = useState(false);
+  const [balance, setBalance] = useState(0);
 
   useEffect(() => {
     if (!wallet) return;
@@ -30,7 +32,9 @@ export default function HelloNear() {
 
   const saveGreeting = async () => {
     setShowSpinner(true);
-    await wallet.callMethod({ contractId: CONTRACT, method: 'set_greeting', args: { greeting: newGreeting } });
+    let res = await wallet.callMethod({ contractId: CONTRACT, method: 'set_greeting', args: { greeting: newGreeting } });
+    console.log("the type is", typeof res);
+    console.log("the res is", res);
     const greeting = await wallet.viewMethod({ contractId: CONTRACT, method: 'get_greeting' });
     setGreeting(greeting);
     setShowSpinner(false);
@@ -43,6 +47,61 @@ export default function HelloNear() {
           Interacting with the contract: &nbsp;
           <code className={styles.code}>{CONTRACT}</code>
         </p>
+      </div>
+
+      <div>
+        <button
+          onClick={async () => {
+            const balance = await wallet.getBalance(signedAccountId);
+            console.log(typeof balance);
+            setBalance(balance);
+          }}
+          style={{ fontSize: '1.2rem', padding: '0.5rem 1rem' }}
+        >
+          Get Balance
+        </button>
+        <p>Balance: {balance} NEAR</p>
+      </div>
+
+      <div>
+      <button
+        onClick = {async () => {
+          const res =  await wallet.signAndSendTransactions({
+            transactions: [
+              {
+                receiverId: "guest-book.testnet",
+                actions: [
+                  {
+                    type: "FunctionCall",
+                    params: {
+                      methodName: "addMessage",
+                      args: { text: "Hello World!" },
+                      gas: "30000000000000",
+                      deposit: "10000000000000000000000",
+                    },
+                  },
+                ],
+              },
+              {
+                receiverId: "icespice.testnet",
+                actions: [
+                  {
+                    type: "Transfer",
+                    params: {
+                      amount: "10000000000000000000000",
+                    },
+                  },
+                ],
+              }
+            ],
+          });
+          console.log("the type is", typeof res);
+          console.log("the res is", res);
+        }}
+        style={{ fontSize: '1.2rem', padding: '0.5rem 1rem' }}
+      >
+        Send Transactions
+      </button>
       </div>
 
       <div className={styles.center}>
